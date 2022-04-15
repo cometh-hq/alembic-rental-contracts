@@ -1,0 +1,12 @@
+node_modules
+.env
+
+#Hardhat files
+cache
+artifacts
+.idea
+coverage
+coverage.json
+dist
+
+.openzeppelin/unknown-31337.json
