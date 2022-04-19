@@ -57,14 +57,14 @@ describe("RentalProtocol", () => {
     chainId = await rp.getChainID();
   });
 
-  describe("Renting offers", () => {
-    it("should create rental offer made of 1 NFT", async () => {
+  describe("Rental offers", () => {
+    it("should create a rental offer made of 1 NFT", async () => {
       const MINT_ID = 123;
 
       // admin whitelists ERC721 token
       await rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address);
 
-      // mint some ERC721 for renting offer
+      // mint some ERC721 for rental offer
       await erc721.mint(lender.address, MINT_ID);
       expect(await erc721.balanceOf(lender.address)).to.equal(1);
 
@@ -74,37 +74,18 @@ describe("RentalProtocol", () => {
       // create rental offer, signed by the lender
       const duration = 24 * 60 * 60;
       const cost = ethers.utils.parseEther("1");
-      const offer: IRentalProtocol.RentalOfferStruct = {
-        maker: lender.address,
-        taker: ZERO_ADDR,
-        token: erc721.address,
-        tokenIds: [MINT_ID],
-        duration, // 24 hours
-        cost,
-      };
-      const offerId = await rp.offerId(offer);
-      const signature = await signRentalOrder(lender, offer);
-      await expect(rp.connect(lender).createRentalOffer(offer, signature))
-        // should emit RentalOfferCreated event
-        .to.emit(rp, 'RentalOfferCreated')
-        .withArgs(offerId, lender.address, ZERO_ADDR, erc721.address, [MINT_ID], duration, cost)
-        // should transfer original NFT
-        .to.emit(erc721, 'Transfer')
-        .withArgs(lender.address, rp.address, MINT_ID)
-        // should mint a LentNFT 
-        .to.emit(lentNFT, 'Transfer')
-        .withArgs(ZERO_ADDR, lender.address, MINT_ID);
-
+      await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
+      
       expect(await erc721.balanceOf(rp.address)).to.equal(1);
     });
 
-    it("should create rental offer made of 5 NFTs", async () => {
+    it("should create a rental offer made of 5 NFTs", async () => {
       const MINT_IDS = [123, 234, 345, 456, 567];
 
       // admin whitelists ERC721 token
       await rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address);
 
-      // mint some ERC721 for renting offer
+      // mint some ERC721 for rental offer
       await Promise.all(MINT_IDS.map((tokenID) => erc721.mint(lender.address, tokenID)));
       expect(await erc721.balanceOf(lender.address)).to.equal(MINT_IDS.length);
 
@@ -144,10 +125,10 @@ describe("RentalProtocol", () => {
       expect(await erc721.balanceOf(rp.address)).to.equal(MINT_IDS.length);
     });
 
-    it("should reject an rental offer on a non whitelisted NFT", async () => {
+    it("should reject a rental offer on a non whitelisted NFT", async () => {
       const MINT_ID = 123;
 
-      // mint some ERC721 for renting offer
+      // mint some ERC721 for rental offer
       await erc721.mint(lender.address, MINT_ID);
       expect(await erc721.balanceOf(lender.address)).to.equal(1);
 
@@ -170,13 +151,13 @@ describe("RentalProtocol", () => {
         .to.be.revertedWith("Token not whitelisted");
     });
 
-    it("should create renting a offer accepted by a tenant", async () => {
+    it("should create a rental offer accepted by a tenant", async () => {
       const MINT_ID = 123;
 
       // admin whitelists ERC721 token
       await rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address);
 
-      // mint some ERC721 for renting offer
+      // mint some ERC721 for rental offer
       await erc721.mint(lender.address, MINT_ID);
       expect(await erc721.balanceOf(lender.address)).to.equal(1);
 
@@ -184,28 +165,9 @@ describe("RentalProtocol", () => {
       await erc721.connect(lender).approve(rp.address, MINT_ID);
 
       // create rental offer, signed by the lender
-      const duration = 24 * 60 * 60;
+      const duration = 24 * 60 * 60; // 24 hours
       const cost = ethers.utils.parseEther("1");
-      const offer: IRentalProtocol.RentalOfferStruct = {
-        maker: lender.address,
-        taker: ZERO_ADDR,
-        token: erc721.address,
-        tokenIds: [MINT_ID],
-        duration, // 24 hours
-        cost,
-      };
-      const offerId = await rp.offerId(offer);
-      const lenderSignature = await signRentalOrder(lender, offer);
-      await expect(rp.connect(lender).createRentalOffer(offer, lenderSignature))
-        // should emit RentalOfferCreated event
-        .to.emit(rp, 'RentalOfferCreated')
-        .withArgs(offerId, lender.address, ZERO_ADDR, erc721.address, [MINT_ID], duration, cost)
-        // should transfer original NFT
-        .to.emit(erc721, 'Transfer')
-        .withArgs(lender.address, rp.address, MINT_ID)
-        // should mint a LentNFT
-        .to.emit(lentNFT, 'Transfer')
-        .withArgs(ZERO_ADDR, lender.address, MINT_ID);
+      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
       expect(await erc721.balanceOf(rp.address)).to.equal(1);
 
       // mint some fake fee tokens for tenant
@@ -233,13 +195,13 @@ describe("RentalProtocol", () => {
         .withArgs(tenant.address, feesCollector.address, ethers.utils.parseEther("0.05"));
     });
 
-    it("should create renting a offer for a specific tenant", async () => {
+    it("should create a rental offer for a specific tenant", async () => {
       const MINT_ID = 123;
 
       // admin whitelists ERC721 token
       await rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address);
 
-      // mint some ERC721 for renting offer
+      // mint some ERC721 for rental offer
       await erc721.mint(lender.address, MINT_ID);
       expect(await erc721.balanceOf(lender.address)).to.equal(1);
 
@@ -249,27 +211,7 @@ describe("RentalProtocol", () => {
       // create private rental offer, signed by the lender
       const duration = 24 * 60 * 60;
       const cost = ethers.utils.parseEther("1");
-      const offer: IRentalProtocol.RentalOfferStruct = {
-        maker: lender.address,
-        taker: tenant.address,
-        token: erc721.address,
-        tokenIds: [MINT_ID],
-        duration, // 24 hours
-        cost,
-      };
-      const offerId = await rp.offerId(offer);
-      const lenderSignature = await signRentalOrder(lender, offer);
-      await expect(rp.connect(lender).createRentalOffer(offer, lenderSignature))
-        // should emit RentalOfferCreated event
-        .to.emit(rp, 'RentalOfferCreated')
-        .withArgs(offerId, lender.address, tenant.address, erc721.address, [MINT_ID], duration, cost)
-        // should transfer original NFT
-        .to.emit(erc721, 'Transfer')
-        .withArgs(lender.address, rp.address, MINT_ID)
-        // should mint a LentNFT
-        .to.emit(lentNFT, 'Transfer')
-        .withArgs(ZERO_ADDR, lender.address, MINT_ID);
-      expect(await erc721.balanceOf(rp.address)).to.equal(1);
+      const [offerId, offer] = await createRentalOffer(lender, tenant.address, MINT_ID, cost, duration);
 
       // mint some fake fee tokens for tenant and anotherTenant
       const totalCost = cost.mul(ethers.utils.parseEther((1 + (FEE_PERCENTAGE / 10000).toString())));
@@ -307,13 +249,13 @@ describe("RentalProtocol", () => {
         .withArgs(tenant.address, feesCollector.address, ethers.utils.parseEther("0.05"));
     });
 
-    it("should create renting a offer and fail to accept by a tenant lacking enough to cover cost", async () => {
+    it("should create a rental offer and fail to accept by a tenant lacking enough to cover cost", async () => {
       const MINT_ID = 123;
 
       // admin whitelists ERC721 token
       await rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address);
 
-      // mint some ERC721 for renting offer
+      // mint some ERC721 for rental offer
       await erc721.mint(lender.address, MINT_ID);
       expect(await erc721.balanceOf(lender.address)).to.equal(1);
 
@@ -323,27 +265,7 @@ describe("RentalProtocol", () => {
       // create rental offer, signed by the lender
       const duration = 24 * 60 * 60;
       const cost = ethers.utils.parseEther("1");
-      const offer: IRentalProtocol.RentalOfferStruct = {
-        maker: lender.address,
-        taker: ZERO_ADDR,
-        token: erc721.address,
-        tokenIds: [MINT_ID],
-        duration, // 24 hours
-        cost,
-      };
-      const offerId = await rp.offerId(offer);
-      const lenderSignature = await signRentalOrder(lender, offer);
-      await expect(rp.connect(lender).createRentalOffer(offer, lenderSignature))
-        // should emit RentalOfferCreated event
-        .to.emit(rp, 'RentalOfferCreated')
-        .withArgs(offerId, lender.address, ZERO_ADDR, erc721.address, [MINT_ID], duration, cost)
-        // should transfer original NFT
-        .to.emit(erc721, 'Transfer')
-        .withArgs(lender.address, rp.address, MINT_ID)
-        // should mint a LentNFT 
-        .to.emit(lentNFT, 'Transfer')
-        .withArgs(ZERO_ADDR, lender.address, MINT_ID);
-      expect(await erc721.balanceOf(rp.address)).to.equal(1);
+      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
 
       // mint some fake fee tokens for tenant
       await feesToken.mint(tenant.address, cost.sub(BigNumber.from("1")));
@@ -355,6 +277,132 @@ describe("RentalProtocol", () => {
         .to.be.revertedWith("ERC20: transfer amount exceeds balance");
     });
   });
+
+  describe("Rental", () => {
+    it("should end a rental by the lender after rental duration", async () => {
+      const MINT_ID = 123;
+
+      // admin whitelists ERC721 token
+      await rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address);
+
+      // mint some ERC721 for rental offer
+      await erc721.mint(lender.address, MINT_ID);
+      expect(await erc721.balanceOf(lender.address)).to.equal(1);
+
+      // approve rental protocol contract to spend the NFTs
+      await erc721.connect(lender).approve(rp.address, MINT_ID);
+
+      // create rental offer, signed by the lender
+      const duration = 24 * 60 * 60;
+      const cost = ethers.utils.parseEther("1");
+      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
+
+      // mint some fake fee tokens for tenant
+      const totalCost = cost.mul(ethers.utils.parseEther((1 + (FEE_PERCENTAGE / 10000).toString())));
+      await feesToken.mint(tenant.address, totalCost);
+      // approve rental protocol to spend them
+      await feesToken.connect(tenant).approve(rp.address, totalCost);
+
+      // tenant picks offer
+      const rental = await acceptRentalOffer(tenant, offerId, offer);
+
+      // lender ends the rental after rental expiry
+      await network.provider.send("evm_setNextBlockTimestamp", [rental.end.add(10).toNumber()])
+      await expect(rp.connect(lender).endRentalOfferAtExpiry(offerId))
+        // should emit RentalStarted event
+        .to.emit(rp, 'RentalFinished')
+        .withArgs(offerId, lender.address, tenant.address, erc721.address, [MINT_ID], rental.start, rental.end)
+        // should burn a BorrowedNFT
+        .to.emit(borrowedNFT, 'Transfer')
+        .withArgs(tenant.address, ZERO_ADDR, MINT_ID)
+        // should burn a LentNFT
+        .to.emit(lentNFT, 'Transfer')
+        .withArgs(lender.address, ZERO_ADDR, MINT_ID)
+        // should send back the original NFT to the lender
+        .to.emit(erc721, 'Transfer')
+        .withArgs(rp.address, lender.address, MINT_ID);
+    });
+
+    it("should end a rental by the tenant after rental duration", async () => {
+      const MINT_ID = 123;
+
+      // admin whitelists ERC721 token
+      await rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address);
+
+      // mint some ERC721 for rental offer
+      await erc721.mint(lender.address, MINT_ID);
+      expect(await erc721.balanceOf(lender.address)).to.equal(1);
+
+      // approve rental protocol contract to spend the NFTs
+      await erc721.connect(lender).approve(rp.address, MINT_ID);
+
+      // create rental offer, signed by the lender
+      const duration = 24 * 60 * 60;
+      const cost = ethers.utils.parseEther("1");
+      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
+
+      // mint some fake fee tokens for tenant
+      const totalCost = cost.mul(ethers.utils.parseEther((1 + (FEE_PERCENTAGE / 10000).toString())));
+      await feesToken.mint(tenant.address, totalCost);
+      // approve rental protocol to spend them
+      await feesToken.connect(tenant).approve(rp.address, totalCost);
+
+      // tenant picks offer
+      const rental = await acceptRentalOffer(tenant, offerId, offer);
+
+      // lender ends the rental after rental expiry
+      await network.provider.send("evm_increaseTime", [duration]);
+      
+      await expect(rp.connect(tenant).endRentalOfferAtExpiry(offerId))
+        // should emit RentalStarted event
+        .to.emit(rp, 'RentalFinished')
+        .withArgs(offerId, lender.address, tenant.address, erc721.address, [MINT_ID], rental.start, rental.end)
+        // should burn a BorrowedNFT
+        .to.emit(borrowedNFT, 'Transfer')
+        .withArgs(tenant.address, ZERO_ADDR, MINT_ID)
+        // should burn a LentNFT
+        .to.emit(lentNFT, 'Transfer')
+        .withArgs(lender.address, ZERO_ADDR, MINT_ID)
+        // should send back the original NFT to the lender
+        .to.emit(erc721, 'Transfer')
+        .withArgs(rp.address, lender.address, MINT_ID);
+    });
+
+    it("should not end a rental before rental duration", async () => {
+      const MINT_ID = 123;
+
+      // admin whitelists ERC721 token
+      await rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address);
+
+      // mint some ERC721 for rental offer
+      await erc721.mint(lender.address, MINT_ID);
+      expect(await erc721.balanceOf(lender.address)).to.equal(1);
+
+      // approve rental protocol contract to spend the NFTs
+      await erc721.connect(lender).approve(rp.address, MINT_ID);
+
+      // create rental offer, signed by the lender
+      const duration = 24 * 60 * 60;
+      const cost = ethers.utils.parseEther("1");
+      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
+
+      // mint some fake fee tokens for tenant
+      const totalCost = cost.mul(ethers.utils.parseEther((1 + (FEE_PERCENTAGE / 10000).toString())));
+      await feesToken.mint(tenant.address, totalCost);
+      // approve rental protocol to spend them
+      await feesToken.connect(tenant).approve(rp.address, totalCost);
+
+      // tenant picks offer
+      const rental = await acceptRentalOffer(tenant, offerId, offer);
+
+      // lender ends the rental after rental expiry
+      await network.provider.send("evm_increaseTime", [5 * 60 * 60]);
+      
+      await expect(rp.connect(tenant).endRentalOfferAtExpiry(offerId))
+        // should emit RentalStarted event
+        .to.be.revertedWith("Rental: rental hasn't expired")
+    });
+  })
 
   describe("Whitelisting", () => {
     it("should only allow to whitelist when having WHITELISTER role", async () => {
@@ -394,6 +442,68 @@ describe("RentalProtocol", () => {
       await rp.setFeesPercentage(700);
     });
   });
+
+  const createRentalOffer = async(
+    maker: SignerWithAddress,
+    taker: string,
+    tokenId: number,
+    cost: BigNumber,
+    duration: number
+  ): Promise<[string, IRentalProtocol.RentalOfferStruct]> => {
+    const offer: IRentalProtocol.RentalOfferStruct = {
+      maker: maker.address,
+      taker: taker,
+      token: erc721.address,
+      tokenIds: [tokenId],
+      duration, // 24 hours
+      cost,
+    };
+    const offerId = await rp.offerId(offer);
+    const makerSignature = await signRentalOrder(maker, offer);
+    await expect(rp.connect(maker).createRentalOffer(offer, makerSignature))
+      // should emit RentalOfferCreated event
+      .to.emit(rp, 'RentalOfferCreated')
+      .withArgs(offerId, maker.address, taker, erc721.address, [tokenId], duration, cost)
+      // should transfer original NFT
+      .to.emit(erc721, 'Transfer')
+      .withArgs(maker.address, rp.address, tokenId)
+      // should mint a LentNFT
+      .to.emit(lentNFT, 'Transfer')
+      .withArgs(ZERO_ADDR, maker.address, tokenId);
+    expect(await erc721.balanceOf(rp.address)).to.equal(1);
+    return [offerId, offer];
+  }
+
+  const acceptRentalOffer = async(
+    taker: SignerWithAddress,
+    offerId: string,
+    offer: IRentalProtocol.RentalOfferStruct
+  ): Promise<[string, string, string, BigNumber, BigNumber] & {
+    maker: string;
+    taker: string;
+    token: string;
+    start: BigNumber;
+    end: BigNumber;
+  }> => {
+    const takerSignature = await signRentalOrder(taker, offer);
+    const start = (await ethers.provider.getBlock('latest')).timestamp + 5;
+    await network.provider.send("evm_setNextBlockTimestamp", [start]);
+    const end = start + BigNumber.from(offer.duration).toNumber();
+    await expect(rp.connect(tenant).acceptRentalOffer(offerId, takerSignature))
+      // should emit RentalStarted event
+      .to.emit(rp, 'RentalStarted')
+      .withArgs(offerId, lender.address, tenant.address, erc721.address, offer.tokenIds, start, end)
+      // should mint a BorrowedNFT to the tenant
+      .to.emit(borrowedNFT, 'Transfer')
+      .withArgs(ZERO_ADDR, tenant.address, offer.tokenIds[0])
+      // should transfer rental cost to lender
+      .to.emit(feesToken, 'Transfer')
+      .withArgs(tenant.address, lender.address, offer.cost)
+      // should transfer rental fees to fees collector
+      .to.emit(feesToken, 'Transfer')
+      .withArgs(tenant.address, feesCollector.address, ethers.utils.parseEther("0.05"));
+    return rp.rentals(offerId);
+  }
 
   const signRentalOrder = async(user: SignerWithAddress, offer: IRentalProtocol.RentalOfferStruct) => {
     const name = await rp.SIGNING_DOMAIN();

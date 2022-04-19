@@ -51,9 +51,9 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
         // transfer NFTs to this contract
         for (uint256 i = 0; i < offer.tokenIds.length; i++) {
             uint256 _tokenId = offer.tokenIds[i];
-            token.safeTransferFrom(msg.sender, address(this), _tokenId);
+            token.safeTransferFrom(signer, address(this), _tokenId);
             // mint LendNFT token
-            _lentNFT.mint(msg.sender, _tokenId);
+            _lentNFT.mint(signer, _tokenId);
         }
         // store offer
         offers[_offerId] = offer;
@@ -99,10 +99,40 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
         BorrowedNFT _borrowedNFT = BorrowedNFT(originalToBorrowed[offer.token]);
         for (uint256 i = 0; i < offer.tokenIds.length; i++) {
             uint256 _tokenId = offer.tokenIds[i];
-            _borrowedNFT.mint(msg.sender, _tokenId);
+            _borrowedNFT.mint(taker, _tokenId);
         }
-        // advertise offer
+        // advertise rental started
         emit RentalStarted(
+            _offerId,
+            rental.maker,
+            rental.taker,
+            rental.token,
+            rental.tokenIds,
+            rental.start,
+            rental.end
+        );
+    }
+
+    function endRentalOfferAtExpiry(bytes32 _offerId) external override {
+        Rental memory rental = rentals[_offerId];
+        require(_msgSender() == rental.maker || _msgSender() == rental.taker, "Rental: forbidden");
+        require(block.timestamp >= rental.end, "Rental: rental hasn't expired");
+
+        // burns `BorrowedNFT`s and `LentNFT`s and give back the original NFTs to the lender
+        BorrowedNFT _borrowedNFT = BorrowedNFT(originalToBorrowed[rental.token]);
+        LentNFT _lentNFT = LentNFT(originalToLent[rental.token]);
+        IERC721 _originalNFT = IERC721(rental.token);
+        for (uint256 i = 0; i < rental.tokenIds.length; i++) {
+            uint256 _tokenId = rental.tokenIds[i];
+            _borrowedNFT.burn(_tokenId);
+            _lentNFT.burn(_tokenId);
+            _originalNFT.safeTransferFrom(address(this), rental.maker, _tokenId);
+        }
+
+        delete rentals[_offerId];
+
+        // advertise rental finished
+        emit RentalFinished(
             _offerId,
             rental.maker,
             rental.taker,

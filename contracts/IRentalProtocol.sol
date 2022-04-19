@@ -23,6 +23,15 @@ interface IRentalProtocol is IERC721Receiver {
         uint256 start,
         uint256 end
     );
+    event RentalFinished(
+        bytes32 indexed rentalId,
+        address indexed maker,
+        address indexed taker,
+        address token,
+        uint256[] tokenIds,
+        uint256 start,
+        uint256 end
+    );
     event TokenWhitelisted(address indexed token);
 
     struct RentalOffer {
@@ -80,6 +89,12 @@ interface IRentalProtocol is IERC721Receiver {
      * @dev `offerId` is the hash of the rental offer, as done before signing with EIP712
      */
     function acceptRentalOffer(bytes32 offerId, bytes calldata signature) external;
+
+    /**
+     * Ends a rental offer when the rental duration has elapsed.
+     * @dev burns `BorrowedNFT`s and `LentNFT`s and give back the original NFTs to the lender
+     */
+    function endRentalOfferAtExpiry(bytes32 offerId) external;
 
     /**
      * Whitelist a NFT contract for rental.
