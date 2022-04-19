@@ -13,12 +13,12 @@ contract LentNFT is ERC721, Ownable, AccessControl {
     }
 
     function mint(address to, uint256 tokenId) external {
-        require(hasRole(MINTER_ROLE, _msgSender()), "LentNFT: must have minter role to mint");
+        require(hasRole(MINTER_ROLE, _msgSender()), "LentNFT: must have minter role");
         _mint(to, tokenId);
     }
 
     function burn(uint256 tokenId) external {
-        require(hasRole(MINTER_ROLE, _msgSender()), "LentNFT: must have minter role to mint");
+        require(hasRole(MINTER_ROLE, _msgSender()), "LentNFT: must have minter role");
         _burn(tokenId);
     }
 

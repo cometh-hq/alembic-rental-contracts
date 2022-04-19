@@ -45,7 +45,9 @@ interface IRentalProtocol is IERC721Receiver {
         uint256[] tokenIds;
         /// how long the rent should be
         uint64 duration;
-        /// fees
+        /// distributed rewards (betwen 0-100% as 0-10000 range)
+        uint64 distributedRewards;
+        /// cost
         uint256 cost;
         /// TODO: add expiry & nonce
     }

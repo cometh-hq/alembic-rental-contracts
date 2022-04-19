@@ -1,4 +1,4 @@
-import { deployments, network, ethers } from "hardhat";
+import { network, ethers } from "hardhat";
 import { BigNumber } from "ethers";
 import { TypedDataDomain, TypedDataField } from "@ethersproject/abstract-signer";
 import chai from "chai";
@@ -40,8 +40,16 @@ describe("RentalProtocol", () => {
     const ERC20Test = await ethers.getContractFactory("ERC20Test");
     feesToken = await ERC20Test.deploy().then((c) => c.deployed()) as ERC20Test;
 
-    // deploy rental protocol    
-    const RentalProtocol = await ethers.getContractFactory("RentalProtocol");
+    // deploy rental protocol library
+    const RentalProtocolLib = await ethers.getContractFactory("LibRentalProtocol");
+    const rpLib = await RentalProtocolLib.deploy().then((c) => c.deployed());
+    expect(rpLib.address).to.be.properAddress;
+    // deploy rental protocol contract
+    const RentalProtocol = await ethers.getContractFactory("RentalProtocol", {
+      libraries: {
+        LibRentalProtocol: rpLib.address,
+      },
+    });
     rp = await RentalProtocol.deploy(feesToken.address, feesCollector.address, FEE_PERCENTAGE).then((c) => c.deployed()) as RentalProtocol;
     expect(rp.address).to.properAddress;
 
@@ -74,7 +82,7 @@ describe("RentalProtocol", () => {
       // create rental offer, signed by the lender
       const duration = 24 * 60 * 60;
       const cost = ethers.utils.parseEther("1");
-      await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
+      await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration, 7000 /* 70% */);
       
       expect(await erc721.balanceOf(rp.address)).to.equal(1);
     });
@@ -93,14 +101,15 @@ describe("RentalProtocol", () => {
       await Promise.all(MINT_IDS.map((tokenID) => erc721.connect(lender).approve(rp.address, tokenID)));
 
       // create rental offer, signed by the lender
-      const duration = 24 * 60 * 60;
+      const duration = 24 * 60 * 60; // 24 hours
       const cost = ethers.utils.parseEther("1");
       const offer: IRentalProtocol.RentalOfferStruct = {
         maker: lender.address,
         taker: ZERO_ADDR,
         token: erc721.address,
         tokenIds: MINT_IDS,
-        duration, // 24 hours
+        duration,
+        distributedRewards: 7000, // 70%
         cost,
       };
       const offerId = await rp.offerId(offer);
@@ -136,14 +145,15 @@ describe("RentalProtocol", () => {
       await erc721.connect(lender).approve(rp.address, MINT_ID);
 
       // create rental offer, signed by the lender
-      const duration = 24 * 60 * 60;
+      const duration = 24 * 60 * 60; // 24 hours
       const cost = ethers.utils.parseEther("1");
       const offer: IRentalProtocol.RentalOfferStruct = {
         maker: lender.address,
         taker: ZERO_ADDR,
         token: erc721.address,
         tokenIds: [MINT_ID],
-        duration, // 24 hours
+        duration,
+        distributedRewards: 7000, // 70%
         cost,
       };
       const signature = await signRentalOrder(lender, offer);
@@ -167,7 +177,7 @@ describe("RentalProtocol", () => {
       // create rental offer, signed by the lender
       const duration = 24 * 60 * 60; // 24 hours
       const cost = ethers.utils.parseEther("1");
-      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
+      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration, 7000 /* 70% */);
       expect(await erc721.balanceOf(rp.address)).to.equal(1);
 
       // mint some fake fee tokens for tenant
@@ -211,7 +221,7 @@ describe("RentalProtocol", () => {
       // create private rental offer, signed by the lender
       const duration = 24 * 60 * 60;
       const cost = ethers.utils.parseEther("1");
-      const [offerId, offer] = await createRentalOffer(lender, tenant.address, MINT_ID, cost, duration);
+      const [offerId, offer] = await createRentalOffer(lender, tenant.address, MINT_ID, cost, duration, 7000 /* 70% */);
 
       // mint some fake fee tokens for tenant and anotherTenant
       const totalCost = cost.mul(ethers.utils.parseEther((1 + (FEE_PERCENTAGE / 10000).toString())));
@@ -265,7 +275,7 @@ describe("RentalProtocol", () => {
       // create rental offer, signed by the lender
       const duration = 24 * 60 * 60;
       const cost = ethers.utils.parseEther("1");
-      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
+      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration, 7000 /* 70% */);
 
       // mint some fake fee tokens for tenant
       await feesToken.mint(tenant.address, cost.sub(BigNumber.from("1")));
@@ -295,7 +305,7 @@ describe("RentalProtocol", () => {
       // create rental offer, signed by the lender
       const duration = 24 * 60 * 60;
       const cost = ethers.utils.parseEther("1");
-      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
+      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration, 7000 /* 70% */);
 
       // mint some fake fee tokens for tenant
       const totalCost = cost.mul(ethers.utils.parseEther((1 + (FEE_PERCENTAGE / 10000).toString())));
@@ -305,6 +315,10 @@ describe("RentalProtocol", () => {
 
       // tenant picks offer
       const rental = await acceptRentalOffer(tenant, offerId, offer);
+      const distribution: BorrowedNFT.DistributionSlotStructOutput[] = await borrowedNFT.distributionOf(MINT_ID);
+      expect(distribution).to.have.length(1);
+      expect(distribution[0].user).to.equal(lender.address);
+      expect(distribution[0].rewards).to.equal(BigNumber.from(7000));
 
       // lender ends the rental after rental expiry
       await network.provider.send("evm_setNextBlockTimestamp", [rental.end.add(10).toNumber()])
@@ -339,7 +353,7 @@ describe("RentalProtocol", () => {
       // create rental offer, signed by the lender
       const duration = 24 * 60 * 60;
       const cost = ethers.utils.parseEther("1");
-      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
+      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration, 7000 /* 70% */);
 
       // mint some fake fee tokens for tenant
       const totalCost = cost.mul(ethers.utils.parseEther((1 + (FEE_PERCENTAGE / 10000).toString())));
@@ -384,7 +398,7 @@ describe("RentalProtocol", () => {
       // create rental offer, signed by the lender
       const duration = 24 * 60 * 60;
       const cost = ethers.utils.parseEther("1");
-      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration);
+      const [offerId, offer] = await createRentalOffer(lender, ZERO_ADDR, MINT_ID, cost, duration, 7000 /* 70% */);
 
       // mint some fake fee tokens for tenant
       const totalCost = cost.mul(ethers.utils.parseEther((1 + (FEE_PERCENTAGE / 10000).toString())));
@@ -414,22 +428,19 @@ describe("RentalProtocol", () => {
       const lentNftAddress = await rp.originalToLent(erc721.address);
       const lentNft: LentNFT = await ethers.getContractAt('LentNFT', lentNftAddress);
       expect(lentNft.address).to.be.properAddress;
+      const borrowedNftAddress = await rp.originalToBorrowed(erc721.address);
+      const borrowedNft: BorrowedNFT = await ethers.getContractAt('BorrowedNFT', borrowedNftAddress);
+      expect(borrowedNft.address).to.be.properAddress;
     });
 
     it("should allow the same token to be whitelisted twice", async () => {
       await expect(rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address))
         .to.emit(rp, 'TokenWhitelisted')
         .withArgs(erc721.address);
-      let lentNftAddress = await rp.originalToLent(erc721.address);
-      let lentNft: LentNFT = await ethers.getContractAt('LentNFT', lentNftAddress);
-      expect(lentNft.address).to.be.properAddress;
 
       await expect(rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address))
         .to.not.emit(rp, 'TokenWhitelisted')
         .withArgs(erc721.address);
-      lentNftAddress = await rp.originalToLent(erc721.address);
-      lentNft = await ethers.getContractAt('LentNFT', lentNftAddress);
-      expect(lentNft.address).to.be.properAddress;
     });
   });
 
@@ -448,14 +459,16 @@ describe("RentalProtocol", () => {
     taker: string,
     tokenId: number,
     cost: BigNumber,
-    duration: number
+    duration: number,
+    distributedRewards: number
   ): Promise<[string, IRentalProtocol.RentalOfferStruct]> => {
     const offer: IRentalProtocol.RentalOfferStruct = {
       maker: maker.address,
       taker: taker,
       token: erc721.address,
       tokenIds: [tokenId],
-      duration, // 24 hours
+      duration,
+      distributedRewards,
       cost,
     };
     const offerId = await rp.offerId(offer);
@@ -478,13 +491,7 @@ describe("RentalProtocol", () => {
     taker: SignerWithAddress,
     offerId: string,
     offer: IRentalProtocol.RentalOfferStruct
-  ): Promise<[string, string, string, BigNumber, BigNumber] & {
-    maker: string;
-    taker: string;
-    token: string;
-    start: BigNumber;
-    end: BigNumber;
-  }> => {
+  ): Promise<IRentalProtocol.RentalStructOutput> => {
     const takerSignature = await signRentalOrder(taker, offer);
     const start = (await ethers.provider.getBlock('latest')).timestamp + 5;
     await network.provider.send("evm_setNextBlockTimestamp", [start]);

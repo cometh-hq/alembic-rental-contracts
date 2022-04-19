@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "./IRentalProtocol.sol";
+import "./LibRentalProtocol.sol";
 import "./LentNFT.sol";
 import "./BorrowedNFT.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -21,12 +22,10 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
     string public constant SIGNATURE_VERSION = "1";
 
     IERC20 public feesToken;
-    address feesCollector;
-    uint256 feesPercentage;
-    mapping(address => address) public originalToLent;
-    mapping(address => address) public originalToBorrowed;
-    mapping(bytes32 => RentalOffer) public offers;
-    mapping(bytes32 => Rental) public rentals;
+    address public feesCollector;
+    uint256 public feesPercentage;
+
+    LibRentalStorage rentalStorage;
 
     constructor(address _feesToken, address _feesCollector, uint256 _feesPercentage) EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -43,20 +42,7 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
         onlyWhitelistedToken(offer.token)
     {
         bytes32 _offerId = offerId(offer);
-        address signer = ECDSA.recover(_offerId, signature);
-        require(signer == offer.maker, "Signer is not maker");
-
-        IERC721 token = IERC721(offer.token);
-        LentNFT _lentNFT = LentNFT(originalToLent[offer.token]);
-        // transfer NFTs to this contract
-        for (uint256 i = 0; i < offer.tokenIds.length; i++) {
-            uint256 _tokenId = offer.tokenIds[i];
-            token.safeTransferFrom(signer, address(this), _tokenId);
-            // mint LendNFT token
-            _lentNFT.mint(signer, _tokenId);
-        }
-        // store offer
-        offers[_offerId] = offer;
+        LibRentalProtocol.createRentalOffer(rentalStorage, _offerId, offer, signature);
         // advertise offer
         emit RentalOfferCreated(
             _offerId,
@@ -70,37 +56,7 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
     }
 
     function acceptRentalOffer(bytes32 _offerId, bytes calldata signature) external override {
-        RentalOffer memory offer = offers[_offerId];
-        address taker = ECDSA.recover(_offerId, signature);
-
-        // check if private rental offer and expected taker
-        if (offer.taker != address(0x0)) {
-            require(offer.taker == taker, "Rental: wrong tenant");
-        }
-
-        // add rental
-        Rental memory rental = Rental({
-            maker: offer.maker,
-            taker: taker,
-            token: offer.token,
-            tokenIds: offer.tokenIds,
-            start: block.timestamp,
-            end: block.timestamp + offer.duration
-        });
-        rentals[_offerId] = rental;
-        // remove rental offer
-        delete offers[_offerId];
-        // taker pays rental cost
-        feesToken.safeTransferFrom(taker, rental.maker, offer.cost);
-        // taker pays free
-        uint256 fees = offer.cost * feesPercentage / 10000;
-        feesToken.safeTransferFrom(taker, feesCollector, fees);
-        // mint BorrowedNFT token
-        BorrowedNFT _borrowedNFT = BorrowedNFT(originalToBorrowed[offer.token]);
-        for (uint256 i = 0; i < offer.tokenIds.length; i++) {
-            uint256 _tokenId = offer.tokenIds[i];
-            _borrowedNFT.mint(taker, _tokenId);
-        }
+        Rental memory rental = LibRentalProtocol.acceptRentalOffer(rentalStorage, _offerId, signature, feesToken, feesCollector, feesPercentage);
         // advertise rental started
         emit RentalStarted(
             _offerId,
@@ -114,25 +70,9 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
     }
 
     function endRentalOfferAtExpiry(bytes32 _offerId) external override {
-        Rental memory rental = rentals[_offerId];
-        require(_msgSender() == rental.maker || _msgSender() == rental.taker, "Rental: forbidden");
-        require(block.timestamp >= rental.end, "Rental: rental hasn't expired");
-
-        // burns `BorrowedNFT`s and `LentNFT`s and give back the original NFTs to the lender
-        BorrowedNFT _borrowedNFT = BorrowedNFT(originalToBorrowed[rental.token]);
-        LentNFT _lentNFT = LentNFT(originalToLent[rental.token]);
-        IERC721 _originalNFT = IERC721(rental.token);
-        for (uint256 i = 0; i < rental.tokenIds.length; i++) {
-            uint256 _tokenId = rental.tokenIds[i];
-            _borrowedNFT.burn(_tokenId);
-            _lentNFT.burn(_tokenId);
-            _originalNFT.safeTransferFrom(address(this), rental.maker, _tokenId);
-        }
-
-        delete rentals[_offerId];
-
+        Rental memory rental = LibRentalProtocol.endRentalOfferAtExpiry(rentalStorage, _offerId);
         // advertise rental finished
-        emit RentalFinished(
+        emit IRentalProtocol.RentalFinished(
             _offerId,
             rental.maker,
             rental.taker,
@@ -143,14 +83,26 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
         );
     }
 
+    function originalToLent(address _token) external view returns (address) {
+        return rentalStorage.originalToLent[_token];
+    }
+
+    function originalToBorrowed(address _token) external view returns (address) {
+        return rentalStorage.originalToBorrowed[_token];
+    }
+
+    function rentals(bytes32 _offerId) external view returns (Rental memory) {
+        return rentalStorage.rentals[_offerId];
+    }
+
     function whitelist(
         address _token,
         address _lentToken,
         address _borrowedToken
     ) external override onlyRole(WHITELISTER_ROLE) {
-        if (originalToLent[_token] == address(0x0)) {
-            originalToLent[_token] = _lentToken;
-            originalToBorrowed[_token] = _borrowedToken;
+        if (rentalStorage.originalToLent[_token] == address(0x0)) {
+            rentalStorage.originalToLent[_token] = _lentToken;
+            rentalStorage.originalToBorrowed[_token] = _borrowedToken;
             emit TokenWhitelisted(_token);
         }
     }
@@ -186,7 +138,7 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
     }
 
     modifier onlyWhitelistedToken(address _token) {
-        require(originalToLent[_token] != address(0x0), "Token not whitelisted");
+        require(rentalStorage.originalToLent[_token] != address(0x0), "Token not whitelisted");
         _;
     }
 }
