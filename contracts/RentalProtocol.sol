@@ -15,20 +15,26 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
     using SafeERC20 for IERC20;
 
     bytes32 public constant WHITELISTER_ROLE = keccak256("WHITELISTER_ROLE");
+    bytes32 public constant FEES_MANAGER_ROLE = keccak256("FEES_MANAGER_ROLE");
 
     string public constant SIGNING_DOMAIN = "Cometh-Rental";
     string public constant SIGNATURE_VERSION = "1";
 
     IERC20 public feesToken;
+    address feesCollector;
+    uint256 feesPercentage;
     mapping(address => address) public originalToLent;
     mapping(address => address) public originalToBorrowed;
     mapping(bytes32 => RentalOffer) public offers;
     mapping(bytes32 => Rental) public rentals;
 
-    constructor(address _feesToken) EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION) {
+    constructor(address _feesToken, address _feesCollector, uint256 _feesPercentage) EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(WHITELISTER_ROLE, msg.sender);
+        _setupRole(FEES_MANAGER_ROLE, msg.sender);
         feesToken = IERC20(_feesToken);
+        feesCollector = _feesCollector;
+        setFeesPercentage(_feesPercentage);
     }
 
     function createRentalOffer(RentalOffer calldata offer, bytes calldata signature)
@@ -79,8 +85,11 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
         rentals[_offerId] = rental;
         // remove rental offer
         delete offers[_offerId];
-        // taker pays fee
+        // taker pays rental cost
         feesToken.safeTransferFrom(taker, rental.maker, offer.cost);
+        // taker pays free
+        uint256 fees = offer.cost * feesPercentage / 10000;
+        feesToken.safeTransferFrom(taker, feesCollector, fees);
         // mint BorrowedNFT token
         BorrowedNFT _borrowedNFT = BorrowedNFT(originalToBorrowed[offer.token]);
         for (uint256 i = 0; i < offer.tokenIds.length; i++) {
@@ -103,13 +112,19 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
         address _token,
         address _lentToken,
         address _borrowedToken
-    ) external override {
-        require(hasRole(WHITELISTER_ROLE, msg.sender), "Role: not a whitelister");
+    ) external override onlyRole(WHITELISTER_ROLE) {
         if (originalToLent[_token] == address(0x0)) {
             originalToLent[_token] = _lentToken;
             originalToBorrowed[_token] = _borrowedToken;
             emit TokenWhitelisted(_token);
         }
+    }
+
+    /**
+     * @dev 5.12% would be the value 512.
+     */
+    function setFeesPercentage(uint256 _feesPercentage) public onlyRole(FEES_MANAGER_ROLE) {
+        feesPercentage = _feesPercentage;
     }
 
     function offerId(RentalOffer calldata offer) public view returns (bytes32) {

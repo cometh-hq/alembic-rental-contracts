@@ -12,6 +12,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 chai.use(solidity);
 const { expect } = chai;
+const FEE_PERCENTAGE = 500; // 5%
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 
 describe("RentalProtocol", () => {
@@ -21,13 +22,14 @@ describe("RentalProtocol", () => {
   let borrowedNFT: BorrowedNFT;
   let feesToken: ERC20Test;
   let admin: SignerWithAddress;
+  let feesCollector: SignerWithAddress;
   let lender: SignerWithAddress;
   let tenant: SignerWithAddress;
   let subtenant: SignerWithAddress;
   let chainId: any;
 
   beforeEach(async () => {
-    [admin, lender, tenant, subtenant] = await ethers.getSigners(); 
+    [admin, feesCollector, lender, tenant, subtenant] = await ethers.getSigners(); 
 
     // deploy fake ERC721 token
     const ERC721Test = await ethers.getContractFactory("ERC721Test");
@@ -39,7 +41,7 @@ describe("RentalProtocol", () => {
 
     // deploy rental protocol    
     const RentalProtocol = await ethers.getContractFactory("RentalProtocol");
-    rp = await RentalProtocol.deploy(feesToken.address).then((c) => c.deployed()) as RentalProtocol;
+    rp = await RentalProtocol.deploy(feesToken.address, feesCollector.address, FEE_PERCENTAGE).then((c) => c.deployed()) as RentalProtocol;
     expect(rp.address).to.properAddress;
 
     // deploy LentNFT token
@@ -206,9 +208,10 @@ describe("RentalProtocol", () => {
       expect(await erc721.balanceOf(rp.address)).to.equal(1);
 
       // mint some fake fee tokens for tenant
-      await feesToken.mint(tenant.address, cost);
+      const totalCost = cost.mul(ethers.utils.parseEther((1 + (FEE_PERCENTAGE / 10000).toString())));
+      await feesToken.mint(tenant.address, totalCost);
       // approve rental protocol to spend them
-      await feesToken.connect(tenant).approve(rp.address, cost);
+      await feesToken.connect(tenant).approve(rp.address, totalCost);
       // tenant picks offer
       const tenantSignature = await signRentalOrder(tenant, offer);
       const start = Date.now() + 5;
@@ -223,7 +226,10 @@ describe("RentalProtocol", () => {
         .withArgs(ZERO_ADDR, tenant.address, MINT_ID)
         // should transfer rental cost to lender
         .to.emit(feesToken, 'Transfer')
-        .withArgs(tenant.address, lender.address, cost);
+        .withArgs(tenant.address, lender.address, cost)
+        // should transfer rental fees to fees collector
+        .to.emit(feesToken, 'Transfer')
+        .withArgs(tenant.address, feesCollector.address, ethers.utils.parseEther("0.05"));
     });
 
     it("should create renting a offer and fail to accept by a tenant lacking enough to cover cost", async () => {
@@ -279,7 +285,7 @@ describe("RentalProtocol", () => {
     it("should only allow to whitelist when having WHITELISTER role", async () => {
       // user lacking proper role should not be able to whitelist or revoke
       await expect(rp.connect(lender).whitelist(erc721.address, lentNFT.address, borrowedNFT.address))
-        .to.be.revertedWith("Role: not a whitelister");
+        .to.be.revertedWith(`AccessControl: account ${lender.address.toLocaleLowerCase()} is missing role ${await rp.WHITELISTER_ROLE()}`);
       // admin whitelists ERC721 token
       await rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address);
       const lentNftAddress = await rp.originalToLent(erc721.address);
@@ -301,6 +307,16 @@ describe("RentalProtocol", () => {
       lentNftAddress = await rp.originalToLent(erc721.address);
       lentNft = await ethers.getContractAt('LentNFT', lentNftAddress);
       expect(lentNft.address).to.be.properAddress;
+    });
+  });
+
+  describe("Fees", () => {
+    it("should only allow to changes fees percentage when having FEES_MANAGER role", async () => {
+      // user lacking proper role should not be able to changes fees percentage
+      await expect(rp.connect(lender).setFeesPercentage(700))
+        .to.be.revertedWith(`AccessControl: account ${lender.address.toLocaleLowerCase()} is missing role ${await rp.FEES_MANAGER_ROLE()}`);
+      // admin changes fees percentage
+      await rp.setFeesPercentage(700);
     });
   });
 
