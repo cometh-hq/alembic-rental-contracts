@@ -99,6 +99,31 @@ interface IRentalProtocol is IERC721Receiver {
     function endRentalOfferAtExpiry(bytes32 offerId) external;
 
     /**
+     * (Sub)Tenant subleases to a sub-tenant.
+     *
+     * @param borrowedNFT address of the `BorrowedNFT` contract
+     * @param tokenId ID of the token
+     * @param to address of the sub-tenant
+     * @param end the end of the sub-lease
+     * @param distributedRewards percentage of rewards to distribute
+     *
+     * @dev {distributedRewards} can't be bigger than 10000 - previously allocated rewards
+     */
+    function sublease(
+        address borrowedNFT,
+        uint256 tokenId,
+        address to,
+        uint256 end,
+        uint64 distributedRewards
+    ) external;
+
+    function originalToLent(address _token) external view returns (address);
+
+    function originalToBorrowed(address _token) external view returns (address);
+
+    function rentals(bytes32 _offerId) external view returns (Rental memory);
+
+    /**
      * Whitelist a NFT contract for rental.
      *
      * If a NFT contract is not whitelisted, all rental offers would be rejected.

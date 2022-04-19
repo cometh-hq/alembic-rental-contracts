@@ -21,7 +21,12 @@ library LibRentalProtocol {
 
     uint64 public constant MAX_DISTRIBUTED_REWARDS = 10000;
 
-    function createRentalOffer(LibRentalStorage storage self, bytes32 _offerId, IRentalProtocol.RentalOffer calldata offer, bytes calldata signature) public {
+    function createRentalOffer(
+        LibRentalStorage storage self,
+        bytes32 _offerId,
+        IRentalProtocol.RentalOffer calldata offer,
+        bytes calldata signature
+    ) public {
         address signer = ECDSA.recover(_offerId, signature);
         require(signer == offer.maker, "Signer is not maker");
 
@@ -67,21 +72,27 @@ library LibRentalProtocol {
         self.rentals[_offerId] = rental;
         // remove rental offer
         delete self.offers[_offerId];
-        // taker pays rental cost
-        feesToken.safeTransferFrom(taker, rental.maker, offer.cost);
-        // taker pays free
-        uint256 fees = offer.cost * feesPercentage / 10000;
-        feesToken.safeTransferFrom(taker, feesCollector, fees);
+        // process cost and fee if offer cost > 0
+        if (offer.cost > 0) {
+            // taker pays rental cost
+            feesToken.safeTransferFrom(taker, rental.maker, offer.cost);
+            // taker pays free
+            uint256 fees = (offer.cost * feesPercentage) / 10000;
+            feesToken.safeTransferFrom(taker, feesCollector, fees);
+        }
         // mint BorrowedNFT token
         BorrowedNFT _borrowedNFT = BorrowedNFT(self.originalToBorrowed[offer.token]);
         for (uint256 i = 0; i < offer.tokenIds.length; i++) {
             uint256 _tokenId = offer.tokenIds[i];
-            _borrowedNFT.mint(taker, _tokenId, offer.maker, offer.distributedRewards);
+            _borrowedNFT.mint(taker, _tokenId, offer.maker, rental.start, rental.end, offer.distributedRewards);
         }
         return rental;
     }
 
-    function endRentalOfferAtExpiry(LibRentalStorage storage self, bytes32 _offerId) public returns (IRentalProtocol.Rental memory) {
+    function endRentalOfferAtExpiry(LibRentalStorage storage self, bytes32 _offerId)
+        public
+        returns (IRentalProtocol.Rental memory)
+    {
         IRentalProtocol.Rental memory rental = self.rentals[_offerId];
         require(msg.sender == rental.maker || msg.sender == rental.taker, "Rental: forbidden");
         require(block.timestamp >= rental.end, "Rental: rental hasn't expired");
@@ -99,5 +110,4 @@ library LibRentalProtocol {
         delete self.rentals[_offerId];
         return rental;
     }
-
 }

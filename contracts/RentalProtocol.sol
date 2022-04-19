@@ -27,7 +27,11 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
 
     LibRentalStorage rentalStorage;
 
-    constructor(address _feesToken, address _feesCollector, uint256 _feesPercentage) EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION) {
+    constructor(
+        address _feesToken,
+        address _feesCollector,
+        uint256 _feesPercentage
+    ) EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(WHITELISTER_ROLE, msg.sender);
         _setupRole(FEES_MANAGER_ROLE, msg.sender);
@@ -56,7 +60,14 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
     }
 
     function acceptRentalOffer(bytes32 _offerId, bytes calldata signature) external override {
-        Rental memory rental = LibRentalProtocol.acceptRentalOffer(rentalStorage, _offerId, signature, feesToken, feesCollector, feesPercentage);
+        Rental memory rental = LibRentalProtocol.acceptRentalOffer(
+            rentalStorage,
+            _offerId,
+            signature,
+            feesToken,
+            feesCollector,
+            feesPercentage
+        );
         // advertise rental started
         emit RentalStarted(
             _offerId,
@@ -83,15 +94,26 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
         );
     }
 
-    function originalToLent(address _token) external view returns (address) {
+    function sublease(
+        address _borrowedNFT,
+        uint256 _tokenId,
+        address _to,
+        uint256 _end,
+        uint64 _distributedRewards
+    ) external override {
+        BorrowedNFT borrowedNFT = BorrowedNFT(_borrowedNFT);
+        borrowedNFT.lease(_to, _tokenId, block.timestamp, _end, _distributedRewards);
+    }
+
+    function originalToLent(address _token) external view override returns (address) {
         return rentalStorage.originalToLent[_token];
     }
 
-    function originalToBorrowed(address _token) external view returns (address) {
+    function originalToBorrowed(address _token) external view override returns (address) {
         return rentalStorage.originalToBorrowed[_token];
     }
 
-    function rentals(bytes32 _offerId) external view returns (Rental memory) {
+    function rentals(bytes32 _offerId) public view override returns (Rental memory) {
         return rentalStorage.rentals[_offerId];
     }
 
@@ -127,14 +149,6 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
                     )
                 )
             );
-    }
-
-    function getChainID() external view returns (uint256) {
-        uint256 id;
-        assembly {
-            id := chainid()
-        }
-        return id;
     }
 
     modifier onlyWhitelistedToken(address _token) {
