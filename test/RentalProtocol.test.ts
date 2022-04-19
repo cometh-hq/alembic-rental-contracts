@@ -25,11 +25,12 @@ describe("RentalProtocol", () => {
   let feesCollector: SignerWithAddress;
   let lender: SignerWithAddress;
   let tenant: SignerWithAddress;
+  let anotherTenant: SignerWithAddress;
   let subtenant: SignerWithAddress;
   let chainId: any;
 
   beforeEach(async () => {
-    [admin, feesCollector, lender, tenant, subtenant] = await ethers.getSigners(); 
+    [admin, feesCollector, lender, tenant, anotherTenant, subtenant] = await ethers.getSigners();
 
     // deploy fake ERC721 token
     const ERC721Test = await ethers.getContractFactory("ERC721Test");
@@ -202,7 +203,7 @@ describe("RentalProtocol", () => {
         // should transfer original NFT
         .to.emit(erc721, 'Transfer')
         .withArgs(lender.address, rp.address, MINT_ID)
-        // should mint a LentNFT 
+        // should mint a LentNFT
         .to.emit(lentNFT, 'Transfer')
         .withArgs(ZERO_ADDR, lender.address, MINT_ID);
       expect(await erc721.balanceOf(rp.address)).to.equal(1);
@@ -217,6 +218,80 @@ describe("RentalProtocol", () => {
       const start = Date.now() + 5;
       await network.provider.send("evm_setNextBlockTimestamp", [start]);
       const end = start + BigNumber.from(offer.duration).toNumber();
+      await expect(rp.connect(tenant).acceptRentalOffer(offerId, tenantSignature))
+        // should emit RentalStarted event
+        .to.emit(rp, 'RentalStarted')
+        .withArgs(offerId, lender.address, tenant.address, erc721.address, [MINT_ID], start, end)
+        // should mint a BorrowedNFT to the tenant
+        .to.emit(borrowedNFT, 'Transfer')
+        .withArgs(ZERO_ADDR, tenant.address, MINT_ID)
+        // should transfer rental cost to lender
+        .to.emit(feesToken, 'Transfer')
+        .withArgs(tenant.address, lender.address, cost)
+        // should transfer rental fees to fees collector
+        .to.emit(feesToken, 'Transfer')
+        .withArgs(tenant.address, feesCollector.address, ethers.utils.parseEther("0.05"));
+    });
+
+    it("should create renting a offer for a specific tenant", async () => {
+      const MINT_ID = 123;
+
+      // admin whitelists ERC721 token
+      await rp.whitelist(erc721.address, lentNFT.address, borrowedNFT.address);
+
+      // mint some ERC721 for renting offer
+      await erc721.mint(lender.address, MINT_ID);
+      expect(await erc721.balanceOf(lender.address)).to.equal(1);
+
+      // approve rental protocol contract to spend the NFTs
+      await erc721.connect(lender).approve(rp.address, MINT_ID);
+
+      // create private rental offer, signed by the lender
+      const duration = 24 * 60 * 60;
+      const cost = ethers.utils.parseEther("1");
+      const offer: IRentalProtocol.RentalOfferStruct = {
+        maker: lender.address,
+        taker: tenant.address,
+        token: erc721.address,
+        tokenIds: [MINT_ID],
+        duration, // 24 hours
+        cost,
+      };
+      const offerId = await rp.offerId(offer);
+      const lenderSignature = await signRentalOrder(lender, offer);
+      await expect(rp.connect(lender).createRentalOffer(offer, lenderSignature))
+        // should emit RentalOfferCreated event
+        .to.emit(rp, 'RentalOfferCreated')
+        .withArgs(offerId, lender.address, tenant.address, erc721.address, [MINT_ID], duration, cost)
+        // should transfer original NFT
+        .to.emit(erc721, 'Transfer')
+        .withArgs(lender.address, rp.address, MINT_ID)
+        // should mint a LentNFT
+        .to.emit(lentNFT, 'Transfer')
+        .withArgs(ZERO_ADDR, lender.address, MINT_ID);
+      expect(await erc721.balanceOf(rp.address)).to.equal(1);
+
+      // mint some fake fee tokens for tenant and anotherTenant
+      const totalCost = cost.mul(ethers.utils.parseEther((1 + (FEE_PERCENTAGE / 10000).toString())));
+      await feesToken.mint(tenant.address, totalCost);
+      await feesToken.mint(anotherTenant.address, totalCost);
+      // approve rental protocol to spend them
+      await feesToken.connect(tenant).approve(rp.address, totalCost);
+      await feesToken.connect(anotherTenant).approve(rp.address, totalCost);
+
+      // another tenant tries to pick offer
+      const anotherTenantSignature = await signRentalOrder(anotherTenant, offer);
+      let start = Date.now() + 5;
+      await network.provider.send("evm_setNextBlockTimestamp", [start]);
+      let end = start + BigNumber.from(offer.duration).toNumber();
+      await expect(rp.connect(tenant).acceptRentalOffer(offerId, anotherTenantSignature))
+        .to.be.revertedWith("Rental: wrong tenant");
+
+      // tenant picks offer
+      const tenantSignature = await signRentalOrder(tenant, offer);
+      start = Date.now() + 5;
+      await network.provider.send("evm_setNextBlockTimestamp", [start]);
+      end = start + BigNumber.from(offer.duration).toNumber();
       await expect(rp.connect(tenant).acceptRentalOffer(offerId, tenantSignature))
         // should emit RentalStarted event
         .to.emit(rp, 'RentalStarted')

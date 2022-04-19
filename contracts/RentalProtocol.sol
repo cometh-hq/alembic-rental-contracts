@@ -73,6 +73,11 @@ contract RentalProtocol is IRentalProtocol, AccessControl, ERC721Holder, EIP712 
         RentalOffer memory offer = offers[_offerId];
         address taker = ECDSA.recover(_offerId, signature);
 
+        // check if private rental offer and expected taker
+        if (offer.taker != address(0x0)) {
+            require(offer.taker == taker, "Rental: wrong tenant");
+        }
+
         // add rental
         Rental memory rental = Rental({
             maker: offer.maker,
