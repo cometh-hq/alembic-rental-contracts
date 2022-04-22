@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.4;
 
+import "./LentNFT.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
@@ -10,7 +11,9 @@ contract BorrowedNFT is ERC721, AccessControl {
     uint64 public constant MAX_DISTRIBUTED_REWARDS = 10000;
 
     struct DistributionSlot {
+        /// @dev user is `0x0` for the owner of the {LentNFT}
         address user;
+        /// rewards for this user as a percentage (10000 base) of what's left for him and subtenants.
         uint64 rewards;
     }
 
@@ -21,26 +24,27 @@ contract BorrowedNFT is ERC721, AccessControl {
         uint256 end;
     }
 
+    LentNFT public lentNFT;
     /// Mapping (tokenId => DistributionSlot[])
     mapping(uint256 => DistributionSlot[]) private distributionByTokenId;
     /// Mapping (tokenId => DurationSlot[])
     mapping(uint256 => DurationSlot[]) private durationsByTokenId;
 
-    constructor() ERC721("Borrowed NFT", "vNFT") {
+    constructor(address _lentNFT) ERC721("Borrowed NFT", "vNFT") {
+        lentNFT = LentNFT(_lentNFT);
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     }
 
     function mint(
         address to,
         uint256 tokenId,
-        address owner,
         uint256 start,
         uint256 end,
         uint64 distributedRewards
     ) external {
         require(hasRole(MINTER_ROLE, _msgSender()), "BorrowedNFT: must have minter role");
         DistributionSlot memory distributionSlot = DistributionSlot({
-            user: owner,
+            user: address(0x0), // this is the owner of the `LentNFT`who would get the rewards, not necessarily the *actual* `owner`.
             rewards: MAX_DISTRIBUTED_REWARDS - distributedRewards
         });
         distributionByTokenId[tokenId].push(distributionSlot);
@@ -89,8 +93,13 @@ contract BorrowedNFT is ERC721, AccessControl {
         _burn(tokenId);
     }
 
+    /**
+     * @dev replaces distribution slot 0 with the *actual* owner of the {LentNFT} 
+     */
     function distributionOf(uint256 tokenId) public view returns (DistributionSlot[] memory) {
-        return distributionByTokenId[tokenId];
+        DistributionSlot[] memory distributions = distributionByTokenId[tokenId];
+        distributions[0].user = lentNFT.ownerOf(tokenId);
+        return distributions;
     }
 
     function durationsOf(uint256 tokenId) public view returns (DurationSlot[] memory) {

@@ -84,7 +84,7 @@ library LibRentalProtocol {
         BorrowedNFT _borrowedNFT = BorrowedNFT(self.originalToBorrowed[offer.token]);
         for (uint256 i = 0; i < offer.tokenIds.length; i++) {
             uint256 _tokenId = offer.tokenIds[i];
-            _borrowedNFT.mint(taker, _tokenId, offer.maker, rental.start, rental.end, offer.distributedRewards);
+            _borrowedNFT.mint(taker, _tokenId, rental.start, rental.end, offer.distributedRewards);
         }
         return rental;
     }

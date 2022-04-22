@@ -59,7 +59,7 @@ describe("RentalProtocol", () => {
     await lentNFT.grantRole(await lentNFT.MINTER_ROLE(), rp.address);
     // deploy BorrowedNFT token
     const BorrowedNFT = await ethers.getContractFactory("BorrowedNFT");
-    borrowedNFT = await BorrowedNFT.deploy().then((c) => c.deployed()) as BorrowedNFT;
+    borrowedNFT = await BorrowedNFT.deploy(lentNFT.address).then((c) => c.deployed()) as BorrowedNFT;
     await borrowedNFT.grantRole(await borrowedNFT.MINTER_ROLE(), rp.address);
 
     chainId = (await ethers.provider.getNetwork()).chainId
@@ -531,7 +531,7 @@ describe("RentalProtocol", () => {
           .to.be.revertedWith("Lease end time invalid");
       });
     })
-  })
+  });
 
   describe("Whitelisting", () => {
     it("should only allow to whitelist when having WHITELISTER role", async () => {
