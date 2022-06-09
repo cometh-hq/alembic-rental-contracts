@@ -54,6 +54,7 @@ contract BorrowedNFT is ERC721Upgradeable, IRewardsSplitter {
             uint256 reward = (remaining * fee.basisPoints) / MAX_BASIS_POINTS;
             remaining -= reward;
             token.safeTransfer(fee.to, reward);
+            emit IRewardsSplitter.RewardsDistributed(tokenId, fee.to, address(token), reward);
         }
         token.safeTransfer(ownerOf(tokenId), remaining);
         return this.onERC20Received.selector;
