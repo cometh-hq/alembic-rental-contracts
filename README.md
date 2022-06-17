@@ -122,6 +122,14 @@ When doing so:
 Fees percentages are represented as basis points, from 0 to 10,000 (so 12.34% is the
 value `1234`).
 
+Fee pencentages are not based on the rewards to be distributed, but what the lender
+and sublender keep for themselves.
+
+Let's assume `150` ERC20 rewarded for a won game.\
+If the lender keeps 20%, they would earn `150 * 2000 / 10000 = 30` ERC20.\
+Remaining rewards to distribute: `150 - 30 = 120` ERC20.\
+If the sublender keeps 15%, they would earn `120 * 1500 / 10000 = 18` ERC20.\
+Remaining rewards sent to the player: `102` ERC20.
 
 ## Hardhat Tasks
 
