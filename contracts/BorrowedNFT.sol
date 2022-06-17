@@ -87,4 +87,11 @@ contract BorrowedNFT is ERC721Upgradeable, IRewardsSplitter {
     function isApprovedForAll(address owner, address operator) public view virtual override returns (bool) {
         return operator == rentalProtocol ? true : super.isApprovedForAll(owner, operator);
     }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721Upgradeable) returns (bool) {
+        return interfaceId == type(IRewardsSplitter).interfaceId || super.supportsInterface(interfaceId);
+    }
 }
