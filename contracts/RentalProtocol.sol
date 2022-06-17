@@ -129,16 +129,6 @@ contract RentalProtocol is
             require(offer.taker == msg.sender, "Private rental");
         }
 
-        // process cost and fee if offer cost > 0
-        if (offer.feeAmount > 0) {
-            IERC20Upgradeable feeToken = IERC20Upgradeable(offer.feeToken);
-            // taker pays the protocol fee
-            uint256 fees = (offer.feeAmount * protocolFeeBasisPoints) / MAX_BASIS_POINTS;
-            feeToken.safeTransferFrom(msg.sender, feesCollector, fees);
-            // taker pays lender
-            feeToken.safeTransferFrom(msg.sender, offer.maker, offer.feeAmount - fees);
-        }
-
         // process each NFT
         for (uint256 i = 0; i < offer.nfts.length; i++) {
             NFT memory nft = offer.nfts[i];
@@ -176,6 +166,16 @@ contract RentalProtocol is
                 block.timestamp,
                 rental.end
             );
+        }
+
+        // process cost and fee if offer cost > 0
+        if (offer.feeAmount > 0) {
+            IERC20Upgradeable feeToken = IERC20Upgradeable(offer.feeToken);
+            // taker pays the protocol fee
+            uint256 fees = (offer.feeAmount * protocolFeeBasisPoints) / MAX_BASIS_POINTS;
+            feeToken.safeTransferFrom(msg.sender, feesCollector, fees);
+            // taker pays lender
+            feeToken.safeTransferFrom(msg.sender, offer.maker, offer.feeAmount - fees);
         }
     }
 
