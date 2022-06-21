@@ -134,11 +134,11 @@ interface IRentalProtocol {
     event SubletEnded(address indexed lender, address indexed tenant, address token, uint256 tokenId);
 
     /**
-     * @param requester address of the first party (lender or tenant) requesting to end the rental prematuraly
+     * @param requester address of the first party (lender or tenant) requesting to end the rental prematurely
      * @param token address of the contract of the NFT rented
      * @param tokenId tokenId of the rented NFT
      */
-    event RequestToEndRentalPrematuraly(address indexed requester, address indexed token, uint256 indexed tokenId);
+    event RequestToEndRentalPrematurely(address indexed requester, address indexed token, uint256 indexed tokenId);
 
     /**
      * @notice Link `originalNFT` to `lentNFT`, `borrowedNFT` and `subLentNFT`.
@@ -195,7 +195,7 @@ interface IRentalProtocol {
      * @param token address of the contract of the NFT rented
      * @param tokenId tokenId of the rented NFT
      */
-    function endRentalPrematuraly(address token, uint256 tokenId) external;
+    function endRentalPrematurely(address token, uint256 tokenId) external;
 
     /**
      * @notice Sublet a rental.

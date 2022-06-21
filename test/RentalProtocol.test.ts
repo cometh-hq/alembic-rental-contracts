@@ -205,7 +205,7 @@ describe("Rental", () => {
         .to.emit(erc721, 'Transfer').withArgs(rp.address, lender.address, tokenId);
     });
 
-    it("should end a rental prematuraly", async () => {
+    it("should end a rental prematurely", async () => {
       const offer = await createBundleOffer(lender, ZERO_ADDR, erc721, rp, `0x${randomBytes(32).toString('hex')}`)
       await rp.connect(lender).preSignRentalOffer(offer);
       const txAcceptOffer = rp.connect(tenant).rent(offer, SignatureType.PRE_SIGNED, "0x");
@@ -214,20 +214,20 @@ describe("Rental", () => {
       const token = offer.nfts[0].token;
       const tokenId = offer.nfts[0].tokenId;
 
-      // lender ask to end the rental prematuraly
-      await expect(rp.connect(lender).endRentalPrematuraly(token, tokenId))
-        .to.emit(rp, 'RequestToEndRentalPrematuraly').withArgs(lender.address, token, tokenId);
+      // lender ask to end the rental prematurely
+      await expect(rp.connect(lender).endRentalPrematurely(token, tokenId))
+        .to.emit(rp, 'RequestToEndRentalPrematurely').withArgs(lender.address, token, tokenId);
 
       // but can't end it unilateraly
-      await expect(rp.connect(lender).endRentalPrematuraly(token, tokenId))
+      await expect(rp.connect(lender).endRentalPrematurely(token, tokenId))
         .to.be.revertedWith("Forbidden");
 
-      // tenant accepts to end the rental prematuraly
-      await expect(rp.connect(tenant).endRentalPrematuraly(token, tokenId))
+      // tenant accepts to end the rental prematurely
+      await expect(rp.connect(tenant).endRentalPrematurely(token, tokenId))
         .to.emit(rp, 'RentalEnded');
     });
 
-    it("should fail to to end rental prematuraly by reusing past agreement", async () => {
+    it("should fail to to end rental prematurely by reusing past agreement", async () => {
       // mint NFT to lender
       await erc721.mint(lender.address, 123);
       await erc721.connect(lender).setApprovalForAll(rp.address, true);
@@ -239,8 +239,8 @@ describe("Rental", () => {
       const token = offer.nfts[0].token;
       const tokenId = offer.nfts[0].tokenId;
 
-      // lender ask to end the rental prematuraly but tenant doesn't care
-      rp.connect(lender).endRentalPrematuraly(token, tokenId);
+      // lender ask to end the rental prematurely but tenant doesn't care
+      rp.connect(lender).endRentalPrematurely(token, tokenId);
 
       // rental ends "naturally"
       await network.provider.send("evm_increaseTime", [(offer.nfts[0].duration as number)+1]);
@@ -252,11 +252,11 @@ describe("Rental", () => {
       await rp.connect(anotherTenant).rent(offer, SignatureType.PRE_SIGNED, "0x");
 
       // ensure anotherTenant can't reuse past lender agreement
-      await expect(rp.connect(anotherTenant).endRentalPrematuraly(token, tokenId))
-        .to.emit(rp, 'RequestToEndRentalPrematuraly');
+      await expect(rp.connect(anotherTenant).endRentalPrematurely(token, tokenId))
+        .to.emit(rp, 'RequestToEndRentalPrematurely');
     });
 
-    it("should fail to end rental prematuraly by reusing agreement from previous LentNFT owner", async () => {
+    it("should fail to end rental prematurely by reusing agreement from previous LentNFT owner", async () => {
       const offer = await createBundleOffer(lender, ZERO_ADDR, erc721, rp, `0x${randomBytes(32).toString('hex')}`)
       await rp.connect(lender).preSignRentalOffer(offer);
       const txAcceptOffer = rp.connect(tenant).rent(offer, SignatureType.PRE_SIGNED, "0x");
@@ -265,22 +265,22 @@ describe("Rental", () => {
       const token = offer.nfts[0].token;
       const tokenId = offer.nfts[0].tokenId;
 
-      // lender ask to end the rental prematuraly
-      await rp.connect(lender).endRentalPrematuraly(token, tokenId);
+      // lender ask to end the rental prematurely
+      await rp.connect(lender).endRentalPrematurely(token, tokenId);
 
       // lender transfer his LentNFT to anotherLender
       await lentNFT.connect(lender).transferFrom(lender.address, anotherLender.address, tokenId);
 
-      // tenant asks to end the rental prematuraly without anotherLender approval
-      await expect(rp.connect(tenant).endRentalPrematuraly(token, tokenId))
+      // tenant asks to end the rental prematurely without anotherLender approval
+      await expect(rp.connect(tenant).endRentalPrematurely(token, tokenId))
         .to.not.emit(rp, 'RentalEnded');
 
-      // now anotherTenant can end the rental prematury
-      await expect(rp.connect(anotherLender).endRentalPrematuraly(token, tokenId))
+      // now anotherTenant can end the rental prematurely
+      await expect(rp.connect(anotherLender).endRentalPrematurely(token, tokenId))
         .to.emit(rp, 'RentalEnded');
     });
 
-    it("should fail to end rental prematuraly when sublet", async () => {
+    it("should fail to end rental prematurely when sublet", async () => {
       const offer = await createBundleOffer(lender, ZERO_ADDR, erc721, rp, `0x${randomBytes(32).toString('hex')}`)
       await rp.connect(lender).preSignRentalOffer(offer);
       const txAcceptOffer = rp.connect(tenant).rent(offer, SignatureType.PRE_SIGNED, "0x");
@@ -292,8 +292,8 @@ describe("Rental", () => {
       // tenant sublet to subTenant1
       await rp.connect(tenant).sublet(offer.nfts[0].token, offer.nfts[0].tokenId, subtenant1.address, 20_00);
 
-      // subtenant1 ask to end the rental prematuraly
-      await expect(rp.connect(subtenant1).endRentalPrematuraly(token, tokenId))
+      // subtenant1 ask to end the rental prematurely
+      await expect(rp.connect(subtenant1).endRentalPrematurely(token, tokenId))
         .to.be.revertedWith("Sublet not ended");
     });
 

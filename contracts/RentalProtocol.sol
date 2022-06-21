@@ -50,7 +50,7 @@ contract RentalProtocol is
     mapping(address => SubLentNFT) public originalToSubLendNFT;
 
     // token => tokenId => (lender or tenant)
-    mapping(address => mapping(uint256 => address)) public endRentalPrematuralyRequests;
+    mapping(address => mapping(uint256 => address)) public endRentalPrematurelyRequests;
 
     address public feesCollector;
     uint16 public protocolFeeBasisPoints;
@@ -206,7 +206,7 @@ contract RentalProtocol is
         _endRental(token, tokenId);
     }
 
-    function endRentalPrematuraly(address token, uint256 tokenId) external override nonReentrant whenNotPaused {
+    function endRentalPrematurely(address token, uint256 tokenId) external override nonReentrant whenNotPaused {
         LentNFT lentNFT = originalToLentNFT[token];
         address lender = lentNFT.ownerOf(tokenId);
         BorrowedNFT borrowedNFT = originalToBorrowedNFT[token];
@@ -215,7 +215,7 @@ contract RentalProtocol is
         require(msg.sender == lender || msg.sender == tenant, "Only lender or tenant");
         require(subletExist(token, tokenId) == false, "Sublet not ended");
 
-        address requester = endRentalPrematuralyRequests[token][tokenId];
+        address requester = endRentalPrematurelyRequests[token][tokenId];
 
         // ensure requester is still either the lender or tenant
         if (requester != lender && requester != tenant) {
@@ -224,8 +224,8 @@ contract RentalProtocol is
 
         if (requester == address(0x0)) {
             // request to end rental prematuraly
-            endRentalPrematuralyRequests[token][tokenId] = msg.sender;
-            emit RequestToEndRentalPrematuraly(msg.sender, token, tokenId);
+            endRentalPrematurelyRequests[token][tokenId] = msg.sender;
+            emit RequestToEndRentalPrematurely(msg.sender, token, tokenId);
         } else {
             // acceptance by the other party (lender or tenant)
             require(requester != address(0x0), "No previous request");
@@ -344,7 +344,7 @@ contract RentalProtocol is
 
         // cleanup
         delete rentals[token][tokenId];
-        delete endRentalPrematuralyRequests[token][tokenId];
+        delete endRentalPrematurelyRequests[token][tokenId];
 
         emit RentalEnded(lender, tenant, token, tokenId);
     }
