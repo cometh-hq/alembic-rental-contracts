@@ -338,12 +338,14 @@ describe("Rental", () => {
       await expect(borrowedNFT.onERC20Received(offer.nfts[0].tokenId, rewardsToken.address, rewardsAmount))
 				.to.emit(borrowedNFT, 'RewardsDistributed').withArgs(offer.nfts[0].tokenId, lender.address, rewardsToken.address, 300_000)
 				.to.emit(borrowedNFT, 'RewardsDistributed').withArgs(offer.nfts[0].tokenId, tenant.address, rewardsToken.address, 140_000)
+				.to.emit(borrowedNFT, 'RewardsDistributed').withArgs(offer.nfts[0].tokenId, subtenant1.address, rewardsToken.address, 560_000)
         .to.emit(rewardsToken, 'Transfer').withArgs(borrowedNFT.address, lender.address, 300_000) // lender: 30% of 1M
         .to.emit(rewardsToken, 'Transfer').withArgs(borrowedNFT.address, tenant.address, 140_000) // tenant: 20% of 700k
         .to.emit(rewardsToken, 'Transfer').withArgs(borrowedNFT.address, subtenant1.address, 560_000);
       // distribute second borrowed NFT rewards according to fees table
       await expect(borrowedNFT.onERC20Received(offer.nfts[1].tokenId, rewardsToken.address, rewardsAmount))
 				.to.emit(borrowedNFT, 'RewardsDistributed').withArgs(offer.nfts[1].tokenId, lender.address, rewardsToken.address, 100_000)
+				.to.emit(borrowedNFT, 'RewardsDistributed').withArgs(offer.nfts[1].tokenId, tenant.address, rewardsToken.address, 900_000)
         .to.emit(rewardsToken, 'Transfer').withArgs(borrowedNFT.address, lender.address, 100_000) // lender: 10% of 1M
         .to.emit(rewardsToken, 'Transfer').withArgs(borrowedNFT.address, tenant.address, 900_000);
     });
