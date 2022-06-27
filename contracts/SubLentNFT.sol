@@ -20,17 +20,17 @@ contract SubLentNFT is ERC721Upgradeable {
     }
 
     function mint(address to, uint256 tokenId) external {
-        require(_msgSender() == rentalProtocol, "Forbidden");
+        require(msg.sender == rentalProtocol, "Forbidden");
         _safeMint(to, tokenId);
     }
 
     function safeMint(address to, uint256 tokenId) external {
-        require(_msgSender() == rentalProtocol, "Forbidden");
+        require(msg.sender == rentalProtocol, "Forbidden");
         _safeMint(to, tokenId);
     }
 
     function burn(uint256 tokenId) external {
-        require(_msgSender() == rentalProtocol, "Forbidden");
+        require(msg.sender == rentalProtocol, "Forbidden");
         _burn(tokenId);
     }
 
