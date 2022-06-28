@@ -10,7 +10,7 @@ contract ERC721Test is AccessControlEnumerable, ERC721Enumerable {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     constructor() ERC721("ERC721Test", "MNFT") {
-        _setupRole(MINTER_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
     }
 
     function mint(address to, uint256 tokenId) public virtual {

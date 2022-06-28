@@ -74,10 +74,10 @@ contract RentalProtocol is
         __EIP712_init(SIGNING_DOMAIN, SIGNATURE_VERSION);
         __ReentrancyGuard_init();
 
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(PAUSER_ROLE, msg.sender);
-        _setupRole(TOKENS_MANAGER_ROLE, msg.sender);
-        _setupRole(FEES_MANAGER_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(PAUSER_ROLE, msg.sender);
+        _grantRole(TOKENS_MANAGER_ROLE, msg.sender);
+        _grantRole(FEES_MANAGER_ROLE, msg.sender);
         setFeesCollector(_feesCollector);
         setFeesBasisPoints(feesBasisPoints);
     }
@@ -275,22 +275,19 @@ contract RentalProtocol is
         address lentNFT,
         address borrowedNFT,
         address subLentNFT
-    ) external {
-        require(hasRole(TOKENS_MANAGER_ROLE, msg.sender), "TOKENS_MANAGER_ROLE only");
+    ) external onlyRole(TOKENS_MANAGER_ROLE) {
         originalToLentNFT[originalNFT] = LentNFT(lentNFT);
         originalToBorrowedNFT[originalNFT] = BorrowedNFT(borrowedNFT);
         originalToSubLendNFT[originalNFT] = SubLentNFT(subLentNFT);
         emit AssociatedNFTs(originalNFT, lentNFT, borrowedNFT, subLentNFT);
     }
 
-    function setFeesCollector(address _feesCollector) public override {
-        require(hasRole(FEES_MANAGER_ROLE, msg.sender), "FEES_MANAGER_ROLE only");
+    function setFeesCollector(address _feesCollector) public override onlyRole(FEES_MANAGER_ROLE) {
         feesCollector = _feesCollector;
         emit FeesCollectorChanged(_feesCollector);
     }
 
-    function setFeesBasisPoints(uint16 basisPoints) public override {
-        require(hasRole(FEES_MANAGER_ROLE, msg.sender), "FEES_MANAGER_ROLE only");
+    function setFeesBasisPoints(uint16 basisPoints) public override onlyRole(FEES_MANAGER_ROLE) {
         protocolFeeBasisPoints = basisPoints;
         emit FeesBasisPointsChanged(basisPoints);
     }
