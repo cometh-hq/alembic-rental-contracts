@@ -56,14 +56,13 @@ describe("Rental", () => {
 
     // deploy LentNFT associated with erc721
     const LentNFT = await ethers.getContractFactory("LentNFT");
-		lentNFT = await upgrades.deployProxy(LentNFT, [rp.address, erc721.address]) as LentNFT;
+		lentNFT = await upgrades.deployProxy(LentNFT, [rp.address, erc721.address, "https://images.service.cometh.io/", ".png"]) as LentNFT;
     // deploy BorrowedNFT associated with erc721
     const BorrowedNFT = await ethers.getContractFactory("BorrowedNFT");
 		borrowedNFT = await upgrades.deployProxy(BorrowedNFT, [rp.address, erc721.address]) as BorrowedNFT;
-
-    // deploy BorrowedNFT associated with erc721
+    // deploy SubLentNFT associated with erc721
     const SubLentNFT = await ethers.getContractFactory("SubLentNFT");
-		subLentNFT = await upgrades.deployProxy(SubLentNFT, [rp.address, erc721.address]) as SubLentNFT;
+		subLentNFT = await upgrades.deployProxy(SubLentNFT, [rp.address, erc721.address, "https://images.service.cometh.io/", ".png"]) as SubLentNFT;
 
     // make RentalProtocol aware of these links
     await rp.associateOriginalToLentAndBorrowedNFT(erc721.address, lentNFT.address, borrowedNFT.address, subLentNFT.address);
@@ -398,14 +397,14 @@ describe("Rental", () => {
       await erc721.mint(admin.address, 123);
       expect(await lentNFT.name()).to.equal('lERC721Test');
       expect(await lentNFT.symbol()).to.equal('lMNFT');
-      expect(await lentNFT.tokenURI(123)).to.equal('https://cometh.io/fake-token/123');
+      expect(await lentNFT.tokenURI(123)).to.equal('data:application/json;base64,eyJuYW1lIjoiTGVudCBNTkZUIDEyMyIsImRlc2NyaXB0aW9uIjoiTGVudCBNTkZUIGZyb20gQ29tZXRoIFJlbnRhbCIsImFuaW1hdGlvbl91cmwiOiJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBEOTRiV3dnZG1WeWMybHZiajBpTVM0d0lpQmxibU52WkdsdVp6MGlWVlJHTFRnaVB6NDhjM1puSUhkcFpIUm9QU0l4TURBbElpQm9aV2xuYUhROUlqRXdNQ1VpSUhacFpYZENiM2c5SWpBZ01DQTRNaklnTVRBNU1pSWdlRzFzYm5NOUltaDBkSEE2THk5M2QzY3Vkek11YjNKbkx6SXdNREF2YzNabklpQjRiV3h1Y3pwNGJHbHVhejBpYUhSMGNEb3ZMM2QzZHk1M015NXZjbWN2TVRrNU9TOTRiR2x1YXlJK1BHbHRZV2RsSUhoc2FXNXJPbWh5WldZOUltaDBkSEJ6T2k4dmFXMWhaMlZ6TG5ObGNuWnBZMlV1WTI5dFpYUm9MbWx2THpFeU15NXdibWNpSUhnOUlqQWlJSGs5SWpBaUlIZHBaSFJvUFNJNE1qSWlJR2hsYVdkb2REMGlNVEE1TWlJZ0x6NGlQR2MrUEhCdmJIbG5iMjRnY0c5cGJuUnpQU0kxTURBc01UTWdOVEF3TERVM0lEVTFNQ3cxTnlJZ2MzUjViR1U5SW1acGJHdzZJQ016UkRZd1EwVTdJR1pwYkhSbGNqb2dZbkpwWjJoMGJtVnpjeWd3TGpVcE95SXZQanh3YjJ4NVoyOXVJSEJ2YVc1MGN6MGlOemN6TERJNE1DQTNNeklzTWpnd0lEY3pNaXd5TXpZaUlITjBlV3hsUFNKbWFXeHNPaUFqTTBRMk1FTkZPeUJtYVd4MFpYSTZJR0p5YVdkb2RHNWxjM01vTUM0MUtUc2lMejQ4Y0c5c2VXZHZiaUJ3YjJsdWRITTlJall3TUN3eE15QTNOek1zTVRnd0lEYzNNeXd5T0RBZ05UQXdMREV6SWlCemRIbHNaVDBpWm1sc2JEb2dJek5FTmpCRFJUc2lMejQ4ZEdWNGRDQjRQU0l3SWlCNVBTSXdJaUJrYjIxcGJtRnVkQzFpWVhObGJHbHVaVDBpYldsa1pHeGxJaUIwWlhoMExXRnVZMmh2Y2owaWJXbGtaR3hsSWlCemRIbHNaVDBpWm1sc2JEb2dkMmhwZEdVN0lHWnZiblF0Wm1GdGFXeDVPaUJCY21saGJEc2dabTl1ZEMxemFYcGxPaUF5T0hCNE95Qm1iMjUwTFhkbGFXZG9kRG9nWW05c1pEc2dkSEpoYm5ObWIzSnRPaUIwY21GdWMyeGhkR1VvTmpZd2NIZ3NNVEkxY0hncElISnZkR0YwWlNnME5XUmxaeWs3SWo1TVpXNTBQQzkwWlhoMFBqd3ZaejQ4TDNOMlp6ND0ifQ==');
     });
 
     it("checks SubLentNFT metadata", async () => {
       await erc721.mint(admin.address, 123);
       expect(await subLentNFT.name()).to.equal('slERC721Test');
       expect(await subLentNFT.symbol()).to.equal('slMNFT');
-      expect(await subLentNFT.tokenURI(123)).to.equal('https://cometh.io/fake-token/123');
+      expect(await subLentNFT.tokenURI(1000036)).to.equal('data:application/json;base64,eyJuYW1lIjoiU3ViTGVudCBNTkZUIDEwMDAwMzYiLCJkZXNjcmlwdGlvbiI6IlN1YkxlbnQgTU5GVCBmcm9tIENvbWV0aCBSZW50YWwiLCJhbmltYXRpb25fdXJsIjoiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQRDk0Yld3Z2RtVnljMmx2YmowaU1TNHdJaUJsYm1OdlpHbHVaejBpVlZSR0xUZ2lQejQ4YzNabklIZHBaSFJvUFNJeE1EQWxJaUJvWldsbmFIUTlJakV3TUNVaUlIWnBaWGRDYjNnOUlqQWdNQ0E0TWpJZ01UQTVNaUlnZUcxc2JuTTlJbWgwZEhBNkx5OTNkM2N1ZHpNdWIzSm5Mekl3TURBdmMzWm5JaUI0Yld4dWN6cDRiR2x1YXowaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1UazVPUzk0YkdsdWF5SStQR2x0WVdkbElIaHNhVzVyT21oeVpXWTlJbWgwZEhCek9pOHZhVzFoWjJWekxuTmxjblpwWTJVdVkyOXRaWFJvTG1sdkx6RXdNREF3TXpZdWNHNW5JaUI0UFNJd0lpQjVQU0l3SWlCM2FXUjBhRDBpT0RJeUlpQm9aV2xuYUhROUlqRXdPVElpSUM4K0lqeG5Qanh3YjJ4NVoyOXVJSEJ2YVc1MGN6MGlOVEF3TERFeklEVXdNQ3cxTnlBMU5UQXNOVGNpSUhOMGVXeGxQU0ptYVd4c09pQWpNMFEyTUVORk95Qm1hV3gwWlhJNklHSnlhV2RvZEc1bGMzTW9NQzQxS1RzaUx6NDhjRzlzZVdkdmJpQndiMmx1ZEhNOUlqYzNNeXd5T0RBZ056TXlMREk0TUNBM016SXNNak0ySWlCemRIbHNaVDBpWm1sc2JEb2dJek5FTmpCRFJUc2dabWxzZEdWeU9pQmljbWxuYUhSdVpYTnpLREF1TlNrN0lpOCtQSEJ2YkhsbmIyNGdjRzlwYm5SelBTSTJNREFzTVRNZ056Y3pMREU0TUNBM056TXNNamd3SURVd01Dd3hNeUlnYzNSNWJHVTlJbVpwYkd3NklDTXpSRFl3UTBVN0lpOCtQSFJsZUhRZ2VEMGlNQ0lnZVQwaU1DSWdaRzl0YVc1aGJuUXRZbUZ6Wld4cGJtVTlJbTFwWkdSc1pTSWdkR1Y0ZEMxaGJtTm9iM0k5SW0xcFpHUnNaU0lnYzNSNWJHVTlJbVpwYkd3NklIZG9hWFJsT3lCbWIyNTBMV1poYldsc2VUb2dRWEpwWVd3N0lHWnZiblF0YzJsNlpUb2dNamh3ZURzZ1ptOXVkQzEzWldsbmFIUTZJR0p2YkdRN0lIUnlZVzV6Wm05eWJUb2dkSEpoYm5Oc1lYUmxLRFkyTUhCNExERXlOWEI0S1NCeWIzUmhkR1VvTkRWa1pXY3BPeUkrVTNWaVRHVnVkRHd2ZEdWNGRENDhMMmMrUEM5emRtYysifQ==');
     });
   });
 
