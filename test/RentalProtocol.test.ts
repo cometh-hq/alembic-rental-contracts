@@ -410,6 +410,8 @@ describe("Rental", () => {
 
 	describe("Admin Features", () => {
     it("checks pausability", async () => {
+			await rp.grantRole(await rp.PAUSER_ROLE(), admin.address);
+
 			// create a rental and
       const offer = await createBundleOffer(lender, ZERO_ADDR, erc721, rp, `0x${randomBytes(32).toString('hex')}`)
 			const token = offer.nfts[0].token;
@@ -418,7 +420,7 @@ describe("Rental", () => {
       await rp.connect(tenant).rent(offer, SignatureType.PRE_SIGNED, "0x");
 			await network.provider.send("evm_increaseTime", [(offer.nfts[0].duration as number)+1]);
 
-			// ensure only admin can paue
+			// ensure only admin can pause
 			await expect(rp.connect(anotherLender).pause()).to.be.reverted;
 			// pause rental protocol
 			await rp.pause();

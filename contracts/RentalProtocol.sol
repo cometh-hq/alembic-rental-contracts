@@ -75,7 +75,6 @@ contract RentalProtocol is
         __ReentrancyGuard_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(PAUSER_ROLE, msg.sender);
         _grantRole(TOKENS_MANAGER_ROLE, msg.sender);
         _grantRole(FEES_MANAGER_ROLE, msg.sender);
         setFeesCollector(_feesCollector);
