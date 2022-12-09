@@ -26,7 +26,7 @@ contract ERC721Test is AccessControlEnumerable, ERC721Enumerable {
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
-        return "https://cometh.io/fake-token/";
+        return "https://ipfs.io/fake-token/";
     }
 
     function supportsInterface(bytes4 interfaceId)

@@ -1,17 +1,13 @@
 import { run, ethers, upgrades, network } from "hardhat";
-import {
-  hashBytecodeWithoutMetadata,
-  Manifest,
-} from "@openzeppelin/upgrades-core";
+import { Manifest } from "@openzeppelin/upgrades-core";
 import { RentalProtocol } from "../artifacts/typechain";
 
 async function main() {
   await run("compile");
 
   const accounts = await ethers.getSigners();
-	const gnosisSafe = '0x84AC85FfeD44ff50858AE9721E1DDe69500D57f2'; // Polygon Safe
-	const feesCollector = '0xf845b2501A69eF480aC577b99e96796c2B6AE88E';
-	const spaceships = "0x78DE8691c97399346DB8685bd3c2D55c6d033c3C";
+	const feesCollector = process.env.FEES_COLLECTOR;
+	const nft = process.env.ERC721_NFT;
 
 	console.info(`Deploying rental protocol with owner "${accounts[0].address}"`);
 
@@ -22,24 +18,7 @@ async function main() {
 	console.log(`Rental Protocol proxy deployed at: "${rp.address}"`);
 
 	// link spaceships to rental NFTs
-	await associateSpaceships(rp, spaceships);
-
-	const ADMIN_ROLE = await rp.DEFAULT_ADMIN_ROLE();
-	const FEES_MANAGER_ROLE = await rp.FEES_MANAGER_ROLE();
-	const TOKENS_MANAGER_ROLE = await rp.TOKENS_MANAGER_ROLE();
-
-	// grant ADMIN role to Safe wallet
-	await rp.grantRole(ADMIN_ROLE, gnosisSafe);
-
-	// revoke roles of initial acccount used to deploy
-	await rp.revokeRole(FEES_MANAGER_ROLE, accounts[0].address);
-	await rp.revokeRole(TOKENS_MANAGER_ROLE, accounts[0].address);
-	await rp.revokeRole(ADMIN_ROLE, accounts[0].address);
-
-	// transfer ownership to Safe
-  console.log("\nTransferring ownership of ProxyAdmin...");
-  await upgrades.admin.transferProxyAdminOwnership(gnosisSafe);
-  console.log("Transferred ownership of ProxyAdmin to:", gnosisSafe);
+	await associateSpaceships(rp, nft);
 }
 
 async function associateSpaceships(rp: RentalProtocol, spaceships: string) {

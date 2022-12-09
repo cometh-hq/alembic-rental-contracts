@@ -1,13 +1,13 @@
 
-# Cometh Rental Protocol
+# Alembic Rental Protocol
 
 ## Context
 
 The purpose of the Rental Protocol is to enable users to lend their ERC721 NFTs in a
 trustless mode.
 
-In Cometh games context, rentals allow to split the game rewards amongst multiple
-parties involved in the rental.
+In Cometh games context, as an example, rentals allow to split the game rewards
+amongst multiple parties involved in the rental.
 
 ## Features
 
@@ -36,8 +36,8 @@ Users can browse through a list of rental offers.
 	Each rented NFT has a dedicated duration and rewards distribution.
 
 When a tenant starts a rental (`rent` function), multiple actions are done:
-- the protocol fee is sent to a Cometh wallet
-  (5% of the upfront cost specified by the lender)
+- the protocol fee is sent to a fees collector wallet
+  (5% by default -- configurable -- of the upfront cost specified by the lender)
 - the remaining upfront cost amount is sent to the lender
 - the original NFTs are transferred to the rental protocol contract
 - the lender receives a `LentNFT` per rented NFT,
@@ -130,9 +130,3 @@ If the lender keeps 20%, they would earn `150 * 2000 / 10000 = 30` ERC20.\
 Remaining rewards to distribute: `150 - 30 = 120` ERC20.\
 If the sublender keeps 15%, they would earn `120 * 1500 / 10000 = 18` ERC20.\
 Remaining rewards sent to the player: `102` ERC20.
-
-## Hardhat Tasks
-
-### Distribute Rewards
-
-`npx hardhat --network matic rental:distribute-rewards --borrowed-nft 0x3b55cd967d501C5FC7A7261fD108B6aefF6e4D48 --token-id 6000000 --amount 0.19`
