@@ -11,6 +11,7 @@ import {
   hashBytecodeWithoutMetadata,
   Manifest,
 } from "@openzeppelin/upgrades-core";
+import { ethers } from "ethers";
 
 task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   const accounts = await hre.ethers.getSigners();
@@ -99,6 +100,25 @@ task("rental:link-nfts", "Allow new NFTs to lend (spaceship, cards, ...)")
 		}
 	});
 
+task("rental:distribute-rewards", "Distribute rewards to a borrowed NFT")
+	.addParam("borrowedNft", "Address of the BorrowedNFT contract", undefined, types.string)
+	.addParam("tokenId", "ID of the BorrowedNFT", undefined, types.int)
+	.addParam("token", "Address of the token to reward (default: must on devnet)", '0xe9d746C95884Ef3C2CE7C1dD355c639B234Cd42b', types.string)
+	.addParam("amount", "Amount of the rewards", undefined, types.string)
+	.setAction(async (args, hre) => {
+		const borrowedNFT = await hre.ethers.getContractAt("BorrowedNFT", args.borrowedNft);
+		const rewardToken = await hre.ethers.getContractAt("ERC20", args.token);
+		const amount = ethers.utils.parseEther(args.amount);
+		// send rewards to the borrowed NFT contract
+		await rewardToken.transfer(borrowedNFT.address, amount);
+		// ask to distribute rewards
+		await borrowedNFT.onERC20Received(
+			args.tokenId,
+			rewardToken.address,
+			amount
+		)
+	});
+
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [
@@ -122,7 +142,7 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 137,
       gas: "auto",
-      // gasPrice: 100000000000,
+      // gasPrice: 300_000_000_000,
     },
     mumbai: {
       url: "https://matic-mumbai.chainstacklabs.com",
